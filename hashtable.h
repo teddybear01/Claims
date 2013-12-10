@@ -26,6 +26,7 @@
 #include "lock.h"
 #include "configure.h"
 #include "lock.h"
+#include "Block/synch.h"
 typedef void (*fun)(void*, void*);
 
 using namespace std;
@@ -42,57 +43,19 @@ class BasicHashTable
 public:
 	BasicHashTable(unsigned nbuckets, unsigned bucksize, unsigned tuplesize);
 	~BasicHashTable();
-	inline void* allocate(const unsigned& offset)
-	{
-		assert(offset<nbuckets_);
-
-		void* data=bucket_[offset];
-
-		void** freeloc = (void**)((char*)data + buck_actual_size_);
-		void* ret;
-		if ((*freeloc)+tuplesize_ <= ((char*)data + buck_actual_size_))
-		{
-			ret = *freeloc;
-			*freeloc = ((char*)(*freeloc)) + tuplesize_;
-			assert(ret!=0);
-			return ret;
-		}
-		char* cur_mother_page=mother_page_list_.back();
-		if(bucksize_+cur_MP_>=pagesize_ )// the current mother page doesn't have enough space for the new buckets
-		{
-			cur_mother_page=(char*)memalign(PAGE_SIZE,pagesize_);
-			assert(cur_mother_page);
-			cur_MP_=0;
-			mother_page_list_.push_back(cur_mother_page);
-		}
-		overflow_count_[offset]++;
-		ret=cur_mother_page+cur_MP_;
-		cur_MP_+=bucksize_;
-
-		void** new_buck_nextloc = (void**)(((char*)ret) + buck_actual_size_ + sizeof(void*));
-		void** new_buck_freeloc = (void**)(((char*)ret) + buck_actual_size_);
-		*new_buck_freeloc = (ret)+tuplesize_ ;
-		*new_buck_nextloc = data;
-
-		bucket_[offset]=ret;
-		return ret;
-	}
-	inline void* atomicAllocate(const unsigned& offset){
-		void* ret;
-		lock_list_[offset].lock();
-		ret=allocate(offset);
-		lock_list_[offset].unlock();
-		return ret;
-	}
+	void* allocate(const unsigned& offset);
+	void* atomicAllocate(const unsigned& offset);
 	inline void UpdateTuple(unsigned int offset,void* loc,void* newvalue, fun func)
 	{
 		func(loc, newvalue);
 	}
 	inline void atomicUpdateTuple(unsigned int offset,void* loc,void* newvalue, fun func)
 	{
-		lock_list_[offset].lock();
+		lock_list_[offset].acquire();
+//		lock.acquire();
 		func(loc, newvalue);
-		lock_list_[offset].unlock();
+//		lock.release();
+		lock_list_[offset].release();
 	}
 	class Iterator
 	{
@@ -184,8 +147,10 @@ private:
 	char* t_start_;
 	int cur_MP_;
 	std::vector<char*> mother_page_list_;
-	SpineLock* lock_list_;
+	Lock* lock_list_;
+	Lock mother_page_lock_;
 	unsigned * overflow_count_;
+	Lock lock;
 };
 
 //

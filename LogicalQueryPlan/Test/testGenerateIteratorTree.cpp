@@ -414,7 +414,7 @@ static int testGenerateIteratorTree(){
 		filter_condition_1.add(table_1->getAttribute(1),FilterIterator::AttributeComparator::GEQ,&trade_date);
 		const int sec_code=600036;
 		filter_condition_1.add(table_1->getAttribute(3),FilterIterator::AttributeComparator::EQ,&sec_code);
-		const int order_type=10;
+		const int order_type=1;
 		filter_condition_1.add(table_1->getAttribute(5),FilterIterator::AttributeComparator::EQ,&order_type);
 		LogicalOperator* filter_1=new Filter(filter_condition_1,cj_join_key_scan);
 
@@ -448,7 +448,7 @@ static int testGenerateIteratorTree(){
 		sb_cj_join_pair_list.push_back(EqualJoin::JoinPair(table_1->getAttribute("trade_dir"),table_2->getAttribute("entry_dir")));
 //		sb_cj_join_pair_list.push_back(EqualJoin::JoinPair(table_1->getAttribute("row_id"),table_2->getAttribute("row_id")));
 //		LogicalOperator* sb_cj_join=new EqualJoin(sb_cj_join_pair_list,filter_1,filter_2);
-		LogicalOperator* sb_cj_join=new EqualJoin(sb_cj_join_pair_list,cj_join_key_scan,sb_join_key_scan);
+		LogicalOperator* sb_cj_join=new EqualJoin(sb_cj_join_pair_list,filter_1,filter_2);
 
 		std::vector<EqualJoin::JoinPair> cj_payload_join_pari_list;
 		cj_payload_join_pari_list.push_back(EqualJoin::JoinPair(table_1->getAttribute("row_id"),table_1->getAttribute("row_id")));
@@ -461,30 +461,30 @@ static int testGenerateIteratorTree(){
 
 
 		std::vector<Attribute> group_by_attributes;
-//		group_by_attributes.push_back(table_1->getAttribute("order_no"));
-//		group_by_attributes.push_back(table_2->getAttribute("entry_date"));
-//		group_by_attributes.push_back(table_2->getAttribute("entry_time"));
-//		group_by_attributes.push_back(table_2->getAttribute("acct_id"));
-//		group_by_attributes.push_back(table_1->getAttribute("trade_dir"));
-//		group_by_attributes.push_back(table_2->getAttribute("order_price"));
-//		group_by_attributes.push_back(table_2->getAttribute("order_vol"));
-//		group_by_attributes.push_back(table_1->getAttribute("order_type"));
-//		group_by_attributes.push_back(table_1->getAttribute("pbu_id"));
+		group_by_attributes.push_back(table_1->getAttribute("order_no"));
+		group_by_attributes.push_back(table_2->getAttribute("entry_date"));
+		group_by_attributes.push_back(table_2->getAttribute("entry_time"));
+		group_by_attributes.push_back(table_2->getAttribute("acct_id"));
+		group_by_attributes.push_back(table_1->getAttribute("trade_dir"));
+		group_by_attributes.push_back(table_2->getAttribute("order_price"));
+		group_by_attributes.push_back(table_2->getAttribute("order_vol"));
+		group_by_attributes.push_back(table_1->getAttribute("order_type"));
+		group_by_attributes.push_back(table_1->getAttribute("pbu_id"));
 //		group_by_attributes.push_back(table_1->getAttribute("sec_code"));
 //		group_by_attributes.push_back(table_1->getAttribute("trade_date"));
-		group_by_attributes.push_back(table_1->getAttribute("trade_dir"));
+//		group_by_attributes.push_back(table_1->getAttribute("trade_dir"));
 		std::vector<Attribute> aggregation_attributes;
-//		aggregation_attributes.push_back(table_1->getAttribute("trade_vol"));
-		aggregation_attributes.push_back(table_1->getAttribute("order_no"));
+		aggregation_attributes.push_back(table_1->getAttribute("trade_vol"));
+//		aggregation_attributes.push_back(table_1->getAttribute("order_no"));
 		std::vector<BlockStreamAggregationIterator::State::aggregation> aggregation_function;
-		aggregation_function.push_back(BlockStreamAggregationIterator::State::count);
+		aggregation_function.push_back(BlockStreamAggregationIterator::State::sum);
 //		LogicalOperator* aggregation=new Aggregation(group_by_attributes,aggregation_attributes,aggregation_function,sb_payload_join);
-		LogicalOperator* aggregation=new Aggregation(group_by_attributes,aggregation_attributes,aggregation_function,sb_cj_join);
+		LogicalOperator* aggregation=new Aggregation(group_by_attributes,aggregation_attributes,aggregation_function,sb_payload_join);
 
 //
 
 		const NodeID collector_node_id=0;
-		LogicalOperator* root=new LogicalQueryPlanRoot(collector_node_id,aggregation,LogicalQueryPlanRoot::PERFORMANCE);
+		LogicalOperator* root=new LogicalQueryPlanRoot(collector_node_id,cj_payload_join,LogicalQueryPlanRoot::PERFORMANCE);
 		root->getDataflow();
 		BlockStreamIteratorBase* executable_query_plan=root->getIteratorTree(1024*64-sizeof(unsigned));
 //		BlockStreamIteratorBase* executable_query_plan=root->getIteratorTree(1024-sizeof(unsigned));

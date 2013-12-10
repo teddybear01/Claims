@@ -31,7 +31,7 @@ BasicHashTable::BasicHashTable(unsigned nbuckets, unsigned bucksize, unsigned tu
 		memset(overflow_count_,0,nbuckets*sizeof(unsigned));
 
 		/** create spinlocks, each of which corresponds to a single bucket*/
-		lock_list_=new SpineLock[nbuckets];
+		lock_list_=new Lock[nbuckets];
 //		for(unsigned i=0;i<nbuckets_;i++){
 //			lock_list_[i]=new SpineLock();
 //		}
@@ -92,7 +92,54 @@ BasicHashTable::~BasicHashTable()
 		delete[] bucket_;
 		delete[] lock_list_;
 }
+void* BasicHashTable::allocate(const unsigned& offset)
+{
+	assert(offset<nbuckets_);
+	//.acquire();
+	void* data=bucket_[offset];
 
+	void** freeloc = (void**)((char*)data + buck_actual_size_);
+	void* ret;
+	if ((*freeloc)+tuplesize_ <= ((char*)data + buck_actual_size_))
+	{
+		ret = *freeloc;
+		*freeloc = ((char*)(*freeloc)) + tuplesize_;
+		assert(ret!=0);
+
+		return ret;
+	}
+	mother_page_lock_.acquire();
+	char* cur_mother_page=mother_page_list_.back();
+	if(bucksize_+cur_MP_>=pagesize_ )// the current mother page doesn't have enough space for the new buckets
+	{
+		cur_mother_page=(char*)memalign(PAGE_SIZE,pagesize_);
+		assert(cur_mother_page);
+		cur_MP_=0;
+		mother_page_list_.push_back(cur_mother_page);
+	}
+	overflow_count_[offset]++;
+	ret=cur_mother_page+cur_MP_;
+	cur_MP_+=bucksize_;
+	mother_page_lock_.release();
+	void** new_buck_nextloc = (void**)(((char*)ret) + buck_actual_size_ + sizeof(void*));
+	void** new_buck_freeloc = (void**)(((char*)ret) + buck_actual_size_);
+	*new_buck_freeloc = (ret)+tuplesize_ ;
+	*new_buck_nextloc = data;
+
+	bucket_[offset]=ret;
+//	mother_page_lock_.release();
+//	lock.release();
+	return ret;
+}
+void* BasicHashTable::atomicAllocate(const unsigned& offset){
+	void* ret;
+	lock_list_[offset].acquire();
+//		lock.acquire();
+	ret=allocate(offset);
+//		lock.release();
+	lock_list_[offset].release();
+	return ret;
+}
 BasicHashTable::Iterator::Iterator() : buck_actual_size(0), tuplesize(0), cur(0), next(0), free(0) { }
 BasicHashTable::Iterator::Iterator(const unsigned& buck_actual_size,const unsigned& tuplesize):buck_actual_size(buck_actual_size),tuplesize(tuplesize),cur(0), next(0), free(0){}
 BasicHashTable::Iterator BasicHashTable:: CreateIterator()const

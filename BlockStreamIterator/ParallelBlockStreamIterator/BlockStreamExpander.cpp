@@ -79,6 +79,7 @@ void* BlockStreamExpander::expanded_work(void* arg){
 	while(Pthis->state_.child_->next(block_for_asking)){
 		Pthis->block_stream_buffer_->insertBlock(block_for_asking);
 		block_count++;
+		//TODO: cancel thread.
 	}
 	/*TODO: the following increment may need to use atomic add for the thread-safety.*/
 	Pthis->finished_thread_count_++;
