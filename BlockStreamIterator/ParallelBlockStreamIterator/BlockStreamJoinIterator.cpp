@@ -56,12 +56,15 @@ bool BlockStreamJoinIterator::open(const PartitionOffset& partition_offset){
 #ifdef TIME
 	startTimer(&timer);
 #endif
+
 	state_.child_left->open(partition_offset);
 	AtomicPushFreeHtBlockStream(BlockStreamBase::createBlock(state_.input_schema_left,state_.block_size_));
 	AtomicPushFreeBlockStream(BlockStreamBase::createBlock(state_.input_schema_right,state_.block_size_));
 	cout<<"AtomicPushFreeBlockStream\n\n"<<endl;
 	cout<<"join open begin"<<endl;
 	if(sema_open_.try_wait()){
+		tuples_in_hashtable=0;
+		consumed_tuples_from_left=0;
 		unsigned output_index=0;
 		for(unsigned i=0;i<state_.joinIndex_left.size();i++){
 			joinIndex_left_to_output[i]=output_index;
@@ -124,6 +127,7 @@ bool BlockStreamJoinIterator::open(const PartitionOffset& partition_offset){
 
 //			lock_.acquire();
 			tuple_in_hashtable=hashtable->atomicAllocate(bn);
+//			lock_.release();
 			/* copy join index columns*/
 //			for(unsigned i=0;i<state_.joinIndex_left.size();i++){
 //				key_in_input=state_.input_schema_left->getColumnAddess(state_.joinIndex_left[i],cur);
@@ -139,32 +143,35 @@ bool BlockStreamJoinIterator::open(const PartitionOffset& partition_offset){
 //			}
 			state_.input_schema_left->copyTuple(cur,tuple_in_hashtable);
 
-//			lock_.release();
+
 		}
 		bsb->setEmpty();
 	}
+	barrier_->Arrive();
+	cout<<"pass the arrive of barrier!!!"<<endl;
 //	printf("<<<<<<<<<<<<<<<<Join Open consumes %d tuples\n",consumed_tuples_from_left);
 	BasicHashTable::Iterator it=hashtable->CreateIterator();
 	unsigned tmp=0;
-	tuples_in_hashtable=0;
+
 //	PartitionFunction* hash_tmp=PartitionFunctionFactory::createGeneralModuloFunction(4);
-//	while(hashtable->placeIterator(it,tmp++)){
-//		void* tuple;
-//		while(tuple=it.readCurrent()){
-////			printf("join key:%s\n",(state_.input_schema_left->getcolumn(state_.joinIndex_left[0]).operate->toString(state_.input_schema_left->getColumnAddess(state_.joinIndex_left[0],tuple)).c_str()));
-//			tuples_in_hashtable++;
+	if(tuples_in_hashtable==0)
+	while(hashtable->placeIterator(it,tmp++)){
+		void* tuple;
+		while(tuple=it.readCurrent()){
+//			printf("join key:%s\n",(state_.input_schema_left->getcolumn(state_.joinIndex_left[0]).operate->toString(state_.input_schema_left->getColumnAddess(state_.joinIndex_left[0],tuple)).c_str()));
+			tuples_in_hashtable++;
 //			unsigned bn=state_.input_schema_left->getcolumn(state_.joinIndex_left[0]).operate->getPartitionValue(state_.input_schema_left->getColumnAddess(state_.joinIndex_left[0],tuple),hash_tmp);
 //			if(rand()%1000<3)
 //			printf("partition key of left tuple:%d\n",bn);
-//			it.increase_cur_();
-//		}
-//	}
+			it.increase_cur_();
+		}
+	}
 //	cout<<"join open end"<<endl;
 	produced_tuples=0;
 	consumed_tuples_from_right=0;
 //	water_mark=0;
-	barrier_->Arrive();
-	cout<<"pass the arrive of barrier!!!"<<endl;
+
+
 	state_.child_right->open(partition_offset);
 //	cout<<"PartitionOffset:"<<partition_offset<<endl;
 //	sleep(1);

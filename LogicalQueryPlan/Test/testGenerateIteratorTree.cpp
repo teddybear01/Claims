@@ -400,14 +400,14 @@ static int testGenerateIteratorTree(){
 //		cin>>input;
 
 
-		LogicalOperator* cj_join_key_scan=new LogicalScan(table_1->getProjectoin(2));
-		LogicalOperator* sb_join_key_scan=new LogicalScan(table_2->getProjectoin(2));
+		LogicalOperator* cj_join_key_scan=new LogicalScan(table_1->getProjectoin(12));
+		LogicalOperator* sb_join_key_scan=new LogicalScan(table_2->getProjectoin(12));
 
 
 
-		LogicalOperator* cj_payload_scan=new LogicalScan(table_1->getProjectoin(3));
+		LogicalOperator* cj_payload_scan=new LogicalScan(table_1->getProjectoin(13));
 
-		LogicalOperator* sb_payload_scan=new LogicalScan(table_2->getProjectoin(3));
+		LogicalOperator* sb_payload_scan=new LogicalScan(table_2->getProjectoin(13));
 
 		Filter::Condition filter_condition_1;
 		const int trade_date=20101008;
@@ -484,7 +484,7 @@ static int testGenerateIteratorTree(){
 //
 
 		const NodeID collector_node_id=0;
-		LogicalOperator* root=new LogicalQueryPlanRoot(collector_node_id,cj_payload_join,LogicalQueryPlanRoot::PERFORMANCE);
+		LogicalOperator* root=new LogicalQueryPlanRoot(collector_node_id,sb_payload_join,LogicalQueryPlanRoot::PERFORMANCE);
 		root->getDataflow();
 		BlockStreamIteratorBase* executable_query_plan=root->getIteratorTree(1024*64-sizeof(unsigned));
 //		BlockStreamIteratorBase* executable_query_plan=root->getIteratorTree(1024-sizeof(unsigned));

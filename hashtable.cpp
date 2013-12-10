@@ -31,7 +31,7 @@ BasicHashTable::BasicHashTable(unsigned nbuckets, unsigned bucksize, unsigned tu
 		memset(overflow_count_,0,nbuckets*sizeof(unsigned));
 
 		/** create spinlocks, each of which corresponds to a single bucket*/
-		lock_list_=new Lock[nbuckets];
+		lock_list_=new SpineLock[nbuckets];
 //		for(unsigned i=0;i<nbuckets_;i++){
 //			lock_list_[i]=new SpineLock();
 //		}
@@ -108,7 +108,7 @@ void* BasicHashTable::allocate(const unsigned& offset)
 
 		return ret;
 	}
-	mother_page_lock_.acquire();
+	mother_page_lock_.lock();
 	char* cur_mother_page=mother_page_list_.back();
 	if(bucksize_+cur_MP_>=pagesize_ )// the current mother page doesn't have enough space for the new buckets
 	{
@@ -120,7 +120,7 @@ void* BasicHashTable::allocate(const unsigned& offset)
 	overflow_count_[offset]++;
 	ret=cur_mother_page+cur_MP_;
 	cur_MP_+=bucksize_;
-	mother_page_lock_.release();
+	mother_page_lock_.unlock();
 	void** new_buck_nextloc = (void**)(((char*)ret) + buck_actual_size_ + sizeof(void*));
 	void** new_buck_freeloc = (void**)(((char*)ret) + buck_actual_size_);
 	*new_buck_freeloc = (ret)+tuplesize_ ;
@@ -133,11 +133,11 @@ void* BasicHashTable::allocate(const unsigned& offset)
 }
 void* BasicHashTable::atomicAllocate(const unsigned& offset){
 	void* ret;
-	lock_list_[offset].acquire();
+	lock_list_[offset].lock();
 //		lock.acquire();
 	ret=allocate(offset);
 //		lock.release();
-	lock_list_[offset].release();
+	lock_list_[offset].unlock();
 	return ret;
 }
 BasicHashTable::Iterator::Iterator() : buck_actual_size(0), tuplesize(0), cur(0), next(0), free(0) { }

@@ -51,11 +51,11 @@ public:
 	}
 	inline void atomicUpdateTuple(unsigned int offset,void* loc,void* newvalue, fun func)
 	{
-		lock_list_[offset].acquire();
+		lock_list_[offset].lock();
 //		lock.acquire();
 		func(loc, newvalue);
 //		lock.release();
-		lock_list_[offset].release();
+		lock_list_[offset].unlock();
 	}
 	class Iterator
 	{
@@ -147,8 +147,8 @@ private:
 	char* t_start_;
 	int cur_MP_;
 	std::vector<char*> mother_page_list_;
-	Lock* lock_list_;
-	Lock mother_page_lock_;
+	SpineLock* lock_list_;
+	SpineLock mother_page_lock_;
 	unsigned * overflow_count_;
 	Lock lock;
 };
